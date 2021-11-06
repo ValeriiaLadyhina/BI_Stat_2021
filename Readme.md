@@ -17,4 +17,4 @@ I used next kinds of statystical analysis:
 * t-test
 * wilcox - test
 * chi-squared test
-* *etc.
+* *etc.*
