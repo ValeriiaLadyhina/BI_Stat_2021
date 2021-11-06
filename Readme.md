@@ -8,6 +8,7 @@ To analyse the data I used next R libraries:
 * library(tidyr)
 
 Additionaly I installed package prettydoc to create better R markdown.
+
 I used next kinds of statystical analysis:
 * qqplot
 * density plot
