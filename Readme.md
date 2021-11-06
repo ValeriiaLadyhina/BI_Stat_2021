@@ -9,7 +9,7 @@ To analyse the data I used next R libraries:
 
 Additionaly I installed package **prettydoc** to create better R markdown. 
 
-I used next kinds of statystical analysis:
+I used next tools for statystical analysis:
 * qqplot
 * density plot
 * violin plot
