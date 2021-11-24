@@ -193,6 +193,7 @@ sstest
 ```{r warning=FALSE, message=FALSE}
 install.packages('multcomp', repos = "http://cran.us.r-project.org" )
 library(multcomp)
+```
 ```{r}
 ggplot(data_drug_effects, aes(x = drug_type, y = days_in_hospital)) + geom_boxplot() +
   labs(x = "Drug type", y = "")  +
