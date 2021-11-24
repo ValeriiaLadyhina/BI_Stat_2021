@@ -1,20 +1,2 @@
-
-In this project I performed statistical analysis of the data on Olympic Games from 1896 to 2016. 
-To analyse the data I used next R libraries:
-* library(dplyr)
-* library(knitr)
-* library(kableExtra)
-* library(ggplot2)
-* library(tidyr)
-
-Additionaly I installed package **prettydoc** to create better R markdown. 
-
-I used next tools for statystical analysis:
-* qqplot
-* density plot
-* violin plot
-* boxplot
-* t-test
-* wilcox - test
-* chi-squared test
-* *etc.*
+In this project we performed analysis of data regarding effect of drugs of interest on patients obtained by 20 medical doctors.
+Needed libraries will e installed automaticly during script work.
