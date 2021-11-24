@@ -1,0 +1,227 @@
+---
+title: "Project ANOVA"
+author: "Tatiana Kikalova, Valeriia Ladyhina, Anastasiia Rusanova"
+date: "`r Sys.Date()`"
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: lumen
+---
+---
+*In this project we analysed data regarding effect of drugs of interest on patients obtained by 20 medical doctors.*
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Now the script will automatically download and  install all required R libraries. Please wait a bit. </p>
+```{r warning=FALSE, message=FALSE}
+requiredPackages = c('tidyverse','ggplot2','prettydoc','dplyr','RColorBrewer','car')
+for(p in requiredPackages){
+  if(!require(p,character.only = TRUE)) install.packages(p, repos = "http://cran.us.r-project.org" )
+  library(p,character.only = TRUE)
+}
+```
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Task 1: Data collection__ </p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> To merge all files into one data frame you can use next function. </p>
+```{r}
+merge_csv_files_in_one_dataframe<-function(file_path, file_type){
+  filenames=list.files(path=file_path, pattern = file_type, full.names=TRUE)
+ do.call(rbind,lapply(filenames, read.csv))
+  }
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Merging files into one data frame named data_drug_effects. </p>
+```{r warning=FALSE}
+data_drug_effects<-merge_csv_files_in_one_dataframe('./Data', '.csv')
+```
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Task 2: Check for normality of the data. EDA__ </p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:"> First let's explore data structure and type of variables we have in out dataframe </p>
+```{r}
+str(data_drug_effects)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> We see that our data has variables such as gender, drug_type, is_relapse that potentially would be better to turn into factors. As current data set is quite small we will perform two kind of analysis: a)check of unique unique values in the whole data set, b)visualisation of the data to reveal outliers. </p>
+<p style="font-family: times, serif; font-size:14pt; font-style:bold; color:black"> __a)__ </p>
+```{r echo=FALSE}
+sapply(data_drug_effects, unique)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Variables X and id repeating information, so we will remove one of them. Variables age and gender have mistaken values that we will later manually fix.</p>
+```{r}
+data_drug_effects <- select(data_drug_effects, -X)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Check for NAs. </p>
+```{r}
+ which(is.na(data_drug_effects), arr.ind=TRUE)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> There are 10 NAs in our data, but all of them located in is_relapsed column. </p>
+<p style="font-family: times, serif; font-size:14pt; font-style:bold; color:black"> __b)__ </p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Now we will perform visualization of the data using second way for outliers search. </p>
+```{r}
+ggplot(data_drug_effects, aes(gender))+
+  geom_bar(fill="darkseagreen3", color="darkseagreen4", alpha=0.9) +
+  xlab("Gender") +
+  theme_set(theme_bw())
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Gender has expected female and male groups and mistaken **malle** group that will be fixed manually together with changing the type of variable gender to factor.</p>
+```{r}
+data_drug_effects$gender[data_drug_effects$gender=='malle']<-'male'
+data_drug_effects$gender<- factor(data_drug_effects$gender, labels = c('Female','Male'))
+```
+```{r}
+ggplot(data_drug_effects,aes(age))+
+  geom_bar(fill="darkseagreen3", color="darkseagreen4", alpha=0.9) +
+  xlab("Age") +
+  labs(title = 'Age distribution') +
+  theme_set(theme_bw())
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Plot revealed three strange values: 220, 350 and 'thirty-one, so we will manually fix them. Also the type of variable age is charachter we will change it to numeric </p>
+```{r}
+data_drug_effects$age[data_drug_effects$age==220]<-22
+data_drug_effects$age[data_drug_effects$age==350]<-35
+data_drug_effects$age[data_drug_effects$age=='thirty-one']<-31
+data_drug_effects$age<-as.numeric(data_drug_effects$age)
+```
+```{r}
+ggplot(data_drug_effects,aes(drug_type))+
+    geom_bar(fill="darkseagreen3", color="darkseagreen4", alpha=0.9) +
+    xlab("Drug type") +
+  scale_x_discrete(labels=c("New type I", "New type II", "Old", "Placebo")) +
+    labs(title = 'Drug type distribution') +
+    theme_bw()
+``` 
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Drug_type variable is of character type, we will change it to factor. </p>
+```{r}
+data_drug_effects$drug_type<-factor(data_drug_effects$drug_type, labels = c('NT1', 'NT2', 'Old Type', 'Placebo'))
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> It would have more sense to use is_relapce variable as factor so we will convert it to a factor variable. </p>
+```{r figures-side, fig.show="hold", out.width="33.3%"}
+qqnorm(data_drug_effects$days_in_hospital)
+qqline(data_drug_effects$days_in_hospital)
+ggplot(data_drug_effects,aes(days_in_hospital))+
+    geom_density()+
+    theme_bw()+
+    labs( title = 'Days in hospital')
+ggplot(data_drug_effects,aes(days_in_hospital))+
+    geom_boxplot()+
+    theme_bw()+
+    labs( title = 'Days in hospital')
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Variable days_in_hospital does not have any significant outliers and has a normal distribution. </p>
+```{r}
+
+```
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Task 3: Count mean and standard deviation of days that were needed for treatment without dependency on gender.__ </p>
+```{r}
+Mean_days_in_hospital<-mean(data_drug_effects$days_in_hospital)
+SD_days_in_hospital<-sd(data_drug_effects$days_in_hospital)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:darkred"> Answer</p>
+
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Mean value of variable days_in_hospital is **`r Mean_days_in_hospital`** while it's standard deviation is **`r SD_days_in_hospital`**.  </p>
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Task 4: Visualization of number of days needed for treatment in hospital among women and men.__ </p>
+```{r}
+ggplot(data_drug_effects,aes(x = gender,y = days_in_hospital)) +
+    geom_violin(aes(fill = gender), show.legend = FALSE) +  
+    stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.05 )+
+    scale_fill_brewer(palette="Pastel2") +
+    xlab("Gender")+
+    ylab("Days in hospital")+
+    theme_bw()+
+    labs( title = 'Days in hospital for male and female')
+```
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Task 5: Is there any difference in time that was needed for treatment between women who had placebo and New Type 2 drug.__ </p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> **1. Firstly, we are going to visualize the percentage of women who spent different time in hospital. We decided to split them in 2 groups dividing by the criteria if they spent more time in hospital than average, or less.**
+
+Here is the percent stacked barplot describing our results: </p>
+```{r}
+women_days_mean <- data_drug_effects %>% filter(gender == "Female") %>% summarize(Mean = mean(days_in_hospital, na.rm=TRUE)) %>% .$Mean
+
+women_days_Placebo_greater <- data_drug_effects %>% filter(gender == "Female", drug_type == "Placebo") %>% filter(days_in_hospital > women_days_mean) %>% count() %>% .$n
+women_days_Placebo_less <- data_drug_effects %>% filter(gender == "Female", drug_type == "Placebo") %>% filter(days_in_hospital < women_days_mean) %>% count() %>% .$n
+
+women_days_type2_greater <- data_drug_effects %>% filter(gender == "Female", drug_type == "NT2") %>% filter(days_in_hospital > women_days_mean) %>% count() %>% .$n
+women_days_type2_less <- data_drug_effects %>% filter(gender == "Female", drug_type == "NT2") %>% filter(days_in_hospital < women_days_mean) %>% count() %>% .$n
+
+mosaic_women <- data.frame(c(women_days_Placebo_greater, women_days_Placebo_less), c(women_days_type2_greater, women_days_type2_less))
+colnames(mosaic_women) <- c("Placebo", "Type II drug")
+rownames(mosaic_women) <- c("Greater than average", "Less than average")
+
+# create a dataset
+treatment <- c(rep("Placebo" , 2) , rep("Type II drug" , 2))
+days <- rep(c("Greater than average" , "Less than average"), 2)
+women <- c(women_days_Placebo_greater, women_days_Placebo_less, women_days_type2_greater, women_days_type2_less)
+data <- data.frame(treatment,days,women)
+ 
+# Stacked + percent
+ggplot(data, aes(x = treatment, y = women, fill=days)) + 
+  geom_bar(position="fill", stat="identity") +
+  xlab("Treatment") +
+  ylab("Women") +
+  scale_fill_brewer(palette="Pastel2") +
+  theme_set(theme_bw())
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> **2. Secondly, we can visualize days spent in hospital by women treated by Placebo and Type II drug with Violin plot:** </p>
+```{r}
+data_drug_effects_women_placebo_vs_nt2<- data_drug_effects%>% 
+                                         filter(drug_type == c('Placebo','NT2'), gender == 'Female')
+ggplot(data_drug_effects_women_placebo_vs_nt2,aes(x = drug_type,y = days_in_hospital)) +
+    geom_violin(aes(fill = drug_type), show.legend = FALSE) +  
+    stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.05)+
+    scale_fill_brewer(palette="Pastel2") +
+    xlab("Type of drug")+
+    ylab("Days in hospital")+
+    theme_bw()+
+    labs( title = 'Days in hospital with Type II drug vs Placebo treatment among women')
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:darkred"> Results</p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> As we can see, the percentage of women that were treated with Type II drug and spent less days in hospital than average, is observably greater. And that means, that the number of days spent in the hospital by women, treated with Type II drug, is less than by women who received a Placebo.</p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> **3. ANOVA analysis**</p>
+```{r}
+women_days <- data_drug_effects %>% filter(gender == "Female", drug_type == c('Placebo','NT2')) %>% select(days_in_hospital, drug_type)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Here are the mean values for Days spent in hospital for 2 women groups in the analysis: </p>
+```{r}
+tapply(women_days$days_in_hospital, women_days$drug_type, mean)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Now let’s check if there is a statistical difference between these values: </p>
+```{r}
+sstest <- t.test(women_days$days_in_hospital[women_days$drug_type == "Placebo"], women_days$days_in_hospital[women_days$drug_type == "NT2"])
+sstest
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:darkred"> Results</p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> As a result of the Student’s t-Test analysis, we were able to reject the Null hypothesis that there is no difference for the amount of days in hospital spent by women treated with Placebo vs women treated with Type II drug *(statistic value = 4.8295, women sample size _Placebo = 13, women sample size_Type II drug = 13, p-value = 9.441e-05). </p>
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Task 6: Is there any difference in time that was needed for treatment between patient with different drug treatment.__ </p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black">  </p>
+```{r warning=FALSE, message=FALSE}
+install.packages('multcomp', repos = "http://cran.us.r-project.org" )
+library(multcomp)
+```{r}
+ggplot(data_drug_effects, aes(x = drug_type, y = days_in_hospital)) + geom_boxplot() +
+  labs(x = "Drug type", y = "")  +
+  facet_grid(cols=vars(gender))
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Earlier we tested variable days_in_hospital and it seemed to be normal, but let' also test it's normality of distribution based on Shapiro-Wilk test.</p>
+```{r}
+test <- shapiro.test(data_drug_effects$days_in_hospital)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Resulting p-value is **`r test$p.value`** which means that we have normal distribution. </p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black">  </p>
+```{r warning=FALSE}
+model <- lm(days_in_hospital ~ drug_type*gender, data = data_drug_effects)
+summary(model)
+plot(model)
+
+anova_model <- Anova(model)
+summary(anova_model)
+```
+```{r}
+aov_model <- aov(days_in_hospital ~ drug_type*gender, data = data_drug_effects)
+summary(aov_model)
+
+tukeytest_gender <- glht(aov_model, linfct = mcp(gender = "Tukey"))
+summary(tukeytest_gender)
+
+tukeytest_drug <- glht(aov_model, linfct = mcp(drug_type = "Tukey"))
+summary(tukeytest_drug)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:darkred"> Results</p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> The combination of the type of drug taken and the gender of the patient significantly affects the time of hospitalization,type 2 drug slows down treatment in men but speeds up treatment in women. The old type of drug slows down treatment in women, but does not have a significant effect in men.</p>
+
