@@ -1,0 +1,135 @@
+---
+title: "Project ANOVA"
+author: "Valeriia Ladyhina"
+date: "`r Sys.Date()`"
+---
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+---
+*In this project we analysed data regarding effect of drugs of interest on patients obtained by 20 medical doctors.*
+---
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Task 1: Data collection__ </p>
+
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> To merge all files into one data frame you can use next function. </p>
+
+```{r warning=FALSE}
+merge_csv_files_in_one_dataframe<-function(file_path, file_type){
+  filenames=list.files(path=file_path, pattern = file_type, full.names=TRUE)
+ do.call(rbind,lapply(filenames, read.csv))
+  }
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Merging files into one data frame named data_drug_effects </p>
+
+```{r warning=FALSE}
+data_drug_effects<-merge_csv_files_in_one_dataframe('./Data', '.csv')
+str(data_drug_effects)
+```
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Task 2: Check for normality of the data. EDA__ </p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:"> First let's explore what kind of variables we have in out dataframe </p>
+```{r}
+head(data_drug_effects)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> We see that our data has variables such as gender, drug_type, is_relapse that potentially would be better to turn into factors. But befor doing this let's check for any kind of outliers via visualization of the data. </p>
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Check for NAs. </p>
+```{r}
+ which(is.na(data_drug_effects), arr.ind=TRUE)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> There are 10 NAs in our data, but all of them located in is_relapsed column. </p>
+```{r}
+ggplot(data = data_drug_effects,aes(gender, fill = gender))+
+    geom_bar()+
+    labs(title = 'Gender')+
+    theme_bw()
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Gender has expected female and male groups and mistaken malle group that will be fixed mannully together with changing the type of variable gender to factor.</p>
+```{r}
+data_drug_effects$gender[data_drug_effects$gender=='malle']<-'male'
+data_drug_effects$gender<- factor(data_drug_effects$gender, labels = c('Female','Male'))
+head(data_drug_effects)
+```
+```{r}
+ggplot(data = data_drug_effects,aes(age, fill = age))+
+    geom_bar()+
+    labs(title = 'Age distribution')+
+    theme_bw()
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Plot revealed three strange values: 220. 350 and 'thirty-one, so we will manually fix them. Also the type of variable age is vharachter we will change it to numeric </p>
+```{r}
+data_drug_effects$age[data_drug_effects$age==220]<-22
+data_drug_effects$age[data_drug_effects$age==350]<-35
+data_drug_effects$age[data_drug_effects$age=='thirty-one']<-31
+data_drug_effects$age<-as.numeric(data_drug_effects$age)
+```
+```{r}
+ggplot(data = data_drug_effects,aes(drug_type, fill = drug_type))+
+    geom_bar()+
+    labs(title = 'Drug type')+
+    theme_bw()
+``` 
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Drug_type variable has is of character type, we will change it to factor. </p>
+```{r}
+data_drug_effects$drug_type<-factor(data_drug_effects$drug_type, labels = c('NT1', 'NT2', 'Old Type', 'Placebo'))
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> It would have more sense to use is_relapce variable as factor so wi will convert ir to a factor variable. </p>
+```{r}
+data_drug_effects$is_relapse<-factor(data_drug_effects$is_relapse)
+ggplot(data = data_drug_effects,aes(is_relapse, fill = is_relapse))+
+    geom_bar()+
+    labs(title = 'Relapse')+
+    theme_bw()
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Variable is_relapse has 10 rows with NAs. </p>
+```{r}
+unique_id<-sort(unique(data_drug_effects$id))
+print(unique_id)
+```
+```{r figures-side, fig.show="hold", out.width="33.3%"}
+qqnorm(data_drug_effects$days_in_hospital)
+qqline(data_drug_effects$days_in_hospital)
+ggplot(data_drug_effects,aes(days_in_hospital))+
+    geom_density()+
+    theme_bw()+
+    labs( title = 'Days in hospital')
+ggplot(data_drug_effects,aes(days_in_hospital))+
+    geom_boxplot()+
+    theme_bw()+
+    labs( title = 'Days in hospital')
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Variable days_in_hospital does not have any significant outliers and has a normal distribution. </p>
+```{r}
+
+```
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Task 3: Count mean ans standart deviation of days that were needed for treatment without depandabcy on gender.__ </p>
+```{r}
+Mean_days_in_hospital<-mean(data_drug_effects$days_in_hospital)
+SD_days_in_hospital<-sd(data_drug_effects$days_in_hospital)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:darkred"> Answer</p>
+
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Mean value of variable days_in_hospital is `r` Mean_days_in_hospital` while it's standard deviation is `r SD_days_in_hospital`.  </p>
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Task 4: Visualization of number of days needed for treatment in hospital among women and men.__ </p>
+```{r}
+ggplot(data_drug_effects,aes(gender,days_in_hospital,fill=data_drug_effects$gender))+
+    geom_violin()+  
+    stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.05 )+
+    theme_bw()+
+    facet_grid()
+    labs( title = 'Days in hospital')
+```
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Task 5: Is there any difference in time that was needed for treatment between women who had pacebo and New Type 2 drug.__ </p>
+```{r}
+data_drug_effects_women_placebo_vs_nt2<- data_drug_effects%>% 
+                                         filter(drug_type == c('Placebo','NT2'), gender == 'Female')
+ggplot(data_drug_effects_women_placebo_vs_nt2,aes(drug_type,days_in_hospital,fill=data_drug_effects_women_placebo_vs_nt2$drug_type))+
+    geom_violin()+  
+    stat_summary(fun.data="mean_sdl", geom="crossbar", width=0.05 )+
+    theme_bw()+
+    facet_grid()
+    labs(x = 'Drug type', y = 'Number of days in hospital', title = 'Days needed for treatment in hospital', subtitle = 'Among women who got Placebo and NT2 drug type.')
+```
+  
+
