@@ -1,0 +1,133 @@
+---
+title: "PCA and kernel PCA analysis"
+subtitle: 'Analysis of dependancy of ctitical temterature of superconductors.'
+author: "Valeriia Ladyhina"
+date: "`r Sys.Date()`"
+output:
+  prettydoc::html_pretty:
+    theme: leonids
+---
+*__In this project we performed PCA analysis of superconductors.__*
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Now the script will automatically download and  install all required R libraries. Please wait a bit. </p>
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+requiredPackages = c('tidyverse','ggplot2','prettydoc','dplyr','RColorBrewer','caret','pls','factoextra','BKPC')
+for(p in requiredPackages){
+  if(!require(p,character.only = TRUE)) install.packages(p, repos = "http://cran.us.r-project.org" )
+  library(p,character.only = TRUE)
+}
+```
+
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Step 1: Download needed data__ </p>
+
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Now we will check if all needed for the analysis already exist in the folder 'Data', if no it will be downloaded and unpacked. </p>
+```{r}
+if (file.exists('./Data')) {
+output_answer<-"1. 'Data' folder exists."
+} else {
+ output_answer<- "1. For futher work 'Data' folder will be created in the working directory."
+ dir.create('./Data') 
+}
+```
+<p style="font-family: times, serif; font-size:14pt"> `r output_answer` </p>
+```{r}
+if (file.exists('./Data/superconduct.zip')) {
+ output_answer<- '2. Zip file was already downloaded.'
+} else {
+ output_answer<- "2. Zip file needed for analysis will be dowloaded into 'Data' folder."
+ download.file('https://archive.ics.uci.edu/ml/machine-learning-databases/00464/superconduct.zip','./Data/superconduct.zip')
+}
+```
+<p style="font-family: times, serif; font-size:14pt"> `r output_answer` </p>
+
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Step 2: Unzip file__ </p>
+```{r}
+
+if (file.exists('./Data/train.csv') & file.exists('./Data/unique_m.csv')) {
+ output_answer<- '3. Files that are needed for analysis already exist.'
+} else {
+ output_answer<- "3. Downloaded zip file will be unpacked in the folder 'Data'."
+ unzip('./Data/superconduct.zip',exdir = './Data')
+}
+```
+<p style="font-family: times, serif; font-size:14pt"> `r output_answer` </p>
+
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Step 3: Combining data__ </p>
+```{r}
+file1<- read.csv('./Data/train.csv')
+file2<- read.csv('./Data/unique_m.csv')
+file2<- dplyr::select(file2,-material)
+data<-cbind(file1,file2)
+```
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Step 4: Division of data on test and training sets__ </p>
+```{r}
+train_size<-sample(seq_len(nrow(data)), size = floor(0.75 * nrow(data))) 
+train_data <- data[train_size, ]
+test_data <- data[-train_size, ]
+```
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Step 5: Data standatisation__ </p>
+```{r}
+normParam <- preProcess(train_data)
+# There are few elements that have zero variance: He, Ne, Ar, Kr, Xe, Pm, Po, At, Rn.
+norm.train_data <- predict(normParam, train_data)  
+norm.test_data <- predict(normParam, test_data)    
+norm.train_data<-dplyr::select(norm.train_data,-c(1,82))
+norm.train_data<-dplyr::select(norm.train_data,-c(He, Ne, Ar, Kr, Xe, Pm, Po, At, Rn))
+norm.test_data<-dplyr::select(norm.test_data,-c(1, 82))
+norm.test_data<-dplyr::select(norm.test_data,-c(He, Ne, Ar, Kr, Xe, Pm, Po, At, Rn))
+```
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Step 6: Linear model that predicts critical temperature based on all existing charecteristics__ </p>
+```{r}
+model <- lm(critical_temp ~ ., data = norm.train_data)
+model_summary <- summary(model)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Adjusted R-squared is `r model_summary$r.squared`, df is `r model_summary$df[2]` with `r model_summary$df[1]` predictors. </p>
+
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Step 7: Train PCA model__ </p>
+
+```{r}
+norm.train_data.pca<-prcomp(norm.train_data[,-158])
+plot(cumsum(norm.train_data.pca$sdev^2/sum(norm.train_data.pca$sdev^2)))
+fviz_screeplot(norm.train_data.pca, addlabels = TRUE)
+var <- get_pca_var(norm.train_data.pca)
+fviz_pca_var(norm.train_data.pca, col.var="contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE )
+```
+<p style="font-family: times, serif; font-size:14pt"> We will perform test on train data with 7 PCs (92%). </p>
+```{r}
+coef7<-as.data.frame(norm.train_data.pca$x[,1:7])
+coef70<-as.data.frame(norm.train_data.pca$x[,1:70])
+mult_coefs <- function(row, coef) sum(row * coef)
+norm.test_data.pca7 <- as.data.frame(sapply(colnames(coef7), function(name) apply(norm.test_data, 1, function(row) mult_coefs(row, coef7[name]))))
+norm.test_data.pca7$critical_temp <- test_data$critical_temp
+model7 <- lm(critical_temp ~ ., data = norm.test_data.pca7)
+model7_summary <- summary(model7)
+#norm.test_data.pca70 <- as.data.frame(sapply(colnames(coef70), function(name) apply(norm.test_data, 1, function(row) mult_coefs(row, coef70[name]))))
+#norm.test_data.pca70$critical_temp <- test_data$critical_temp
+#model70 <- lm(critical_temp ~ ., data = norm.test_data.pca70)
+#model70_summary <- summary(model70)
+```
+<p style="font-family: times, serif; font-size:14pt; font-style:italic; color:black"> Adjusted R-squared for y PCs is `r model7_summary$r.squared`, df is `r model7_summary$df[2]` with `r model7_summary$df[1]`. </p>
+```{r}
+norm.test_data.pca <- predict(norm.train_data.pca, norm.test_data)
+pc <- c(1,2)
+png("pca_pred.png", units="in", width=5, height=4, res=200)
+plot((norm.train_data.pca$x[,pc]))
+ points(norm.test_data.pca[,pc],col = 'red')
+ legend("topleft", legend=c("training data - black", "validation data - red"))
+```
+<p style="font-family: times, serif; font-size:18pt; font-style:bold; color:black"> __Step 8: Kernel PCA model__ As it was taken too much memory I reduced size of the data sets to 3000 measurements. I know - it is no representative results, but wanted to try to do it in R  and it still didn't work...:(. </p>
+```{r}
+#kpca <-  kPCA(norm.train_data[1:3000,], kernel = 'rbfdot')
+#norm.test_data.kpca <-  as.data.frame(predict(kpca, norm.test_data[1:3000,]))
+#norm.test_data.kpca$critical_temp <- test_data$critical_temp[1:3000]
+#kpca_model<-lm(critical_temp ~ ., data = norm.test_data.kpca)  
+#modelkpca <- lm(critical_temp ~ ., data = norm.test.kpca)
+#modelkpca_summary <- summary(modelkpca)              
+```
+
+
+
